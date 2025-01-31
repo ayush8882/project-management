@@ -99,6 +99,11 @@ export class TasksService {
     return await this.taskModel.find(filterQuery).exec()
   }
 
+  async findById(taskId: string) {
+    const response = await this.taskModel.findById(taskId);
+    return response;
+  }
+
   @Cron('* * 1 * * *')
   async dueByNotification(){
     console.log('cron executing');

@@ -14,8 +14,9 @@ export class ProjectsService {
     @InjectModel(ProjectMember.name) private readonly projectMemberModel: Model<ProjectMemberDocument>,
     @InjectModel(User.name) private readonly userModel: Model<UserDocument>,
   ) {}
-  async create(createProjectDto: CreateProjectDto) {
-    const newProjectInstance = new this.projectModel({...createProjectDto})
+  async create(createProjectDto: CreateProjectDto, user: any) {
+    console.log(user)
+    const newProjectInstance = new this.projectModel({...createProjectDto, owner: user._id})
     return newProjectInstance.save();
   }
 
@@ -35,6 +36,7 @@ export class ProjectsService {
         const projectMembers = await Promise.all(
             project_members.map(async member => {
               const memberDetail = await this.userModel.findById(member?.id)
+              if(!memberDetail) { throw new BadRequestException('Provided user does not exists')}
                 const response = await this.projectMemberModel.findOneAndUpdate({
                     project_id: new Types.ObjectId(id),
                     user: memberDetail?._id
@@ -102,5 +104,14 @@ export class ProjectsService {
       }
     )
     return updatedResponse
+  }
+
+  async findMemberOfProject (projectId: string, userId: string) {
+    const memberDetails = await this.projectMemberModel.find({
+      project_id: new Types.ObjectId(projectId),
+      user: new Types.ObjectId(userId),
+    })
+    if(!memberDetails || memberDetails?.length === 0) return false
+    return true
   }
 }

@@ -7,6 +7,7 @@ import { ProjectsModule } from '../projects/projects.module';
 import { ProjectMember, ProjectMemberSchema } from '../projects/entities/project-member.entity';
 import { NotificationGateway } from '../notification/notification.gateway';
 import { ScheduleModule } from '@nestjs/schedule';
+import { UsersModule } from '../users/users.module';
 
 @Module({
   imports: [MongooseModule.forFeature([
@@ -15,9 +16,11 @@ import { ScheduleModule } from '@nestjs/schedule';
   ]), 
   ProjectsModule, 
   NotificationGateway,
+  UsersModule,
   ScheduleModule.forRoot()
 ],
   controllers: [TasksController],
   providers: [TasksService, NotificationGateway],
+  exports: [TasksService]
 })
 export class TasksModule {}
