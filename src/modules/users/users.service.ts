@@ -21,8 +21,8 @@ export class UsersService {
     const userData = new this.usersModel(
       {...createUserDto, password:hashedPassword}
     )
-    const {password, ...rest} = await userData.save()
-    return rest;
+    const response = await userData.save()
+    return response;
   }
 
   async findByEmail (email: string) {

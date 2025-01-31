@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import { BadRequestException, HttpException, Injectable } from '@nestjs/common';
 import { ProjectsService } from '../projects/projects.service';
 import { InjectModel } from '@nestjs/mongoose';
 import { TaskDocument, Tasks } from './entities/task.entity';
@@ -11,26 +11,33 @@ import * as moment from 'moment';
 import { UpdateTaskDto } from './dto/update-task.dto';
 import { CreateTaskDto } from './dto/create-task-dto';
 import { GetAllTasksQueryDto } from './dto/get-all-tasks.dto';
+import { TaskActivityService } from '../activity-log/task-activity.service';
 
 @Injectable()
 export class TasksService {
   constructor (
     private readonly projectService: ProjectsService, 
+    private readonly taskActivityService: TaskActivityService,
     private readonly notificationGateway: NotificationGateway,
     @InjectModel(Tasks.name) private readonly taskModel : Model<TaskDocument>,
     @InjectModel(ProjectMember.name) private readonly projectMemberModel : Model<ProjectMemberDocument>
   ) {}
 
-  async create(projectId:string, createTaskDto: CreateTaskDto) {
+  async create(projectId:string, createTaskDto: CreateTaskDto, user: any) {
     const projectDetails = await this.projectService.findById(projectId);
     if(!projectDetails) { throw new BadRequestException('Project does not exists')}
 
     const taskObject = {...createTaskDto, project_id: projectDetails._id}
     const newTaskInstance = new this.taskModel({
       ...taskObject,
+      owner: user._id
     })
     const response = (await newTaskInstance.save())
     this.notificationGateway.notifyTaskUpdates(response)
+    await this.taskActivityService.logActivity(response?.id, user?._id?.toString(), 'New Task has been created', {
+      name: response?.name,
+      description: response?.description
+    })
     return response;
   }
 
@@ -60,7 +67,7 @@ export class TasksService {
     }};
   }
 
-  async updateProjectTask(id: string, projectId: string, updateTaskDto: UpdateTaskDto) {
+  async updateProjectTask(id: string, projectId: string, updateTaskDto: UpdateTaskDto, userId: string) {
     if(updateTaskDto.assigned_user){
       const projectMember = await this.projectMemberModel.find({
         project_id: projectId,
@@ -70,7 +77,12 @@ export class TasksService {
       updateTaskDto.assigned_user = new Types.ObjectId(updateTaskDto.assigned_user)
     }
 
+    const oldTask = await this.taskModel.findById(id);
+    if(!oldTask) { throw new BadRequestException('Task does not exists')}
     const response = await this.taskModel.findByIdAndUpdate(id, updateTaskDto, {new: true}).exec()
+    const changes = this.getChanges(oldTask.toObject(), response?.toObject());
+    const description = this.generateActivityDescription(changes)
+    await this.taskActivityService.logActivity(id, userId, description, changes)
     this.notificationGateway.notifyTaskUpdates(response)
     return response
   }
@@ -97,6 +109,55 @@ export class TasksService {
     }
     console.log(filterQuery)
     return await this.taskModel.find(filterQuery).exec()
+  }
+
+  async findById(taskId: string) {
+    const response = await this.taskModel.findById(taskId);
+    return response;
+  }
+
+  private getChanges(oldTask: any, newTask: any): Record<string, any> {
+    const changes: Record<string, any> = {};
+
+    for (const [key, value] of Object.entries(newTask)){
+      if(oldTask[key] !== value && key !== '_id' && key !== '__v'){
+        changes[key] = {
+          from: oldTask[key],
+          to: value
+        }
+      }
+    }
+    return changes;
+  }
+
+  private generateActivityDescription(changes: Record<string, any>): string {
+    const description: string[] = []
+
+    for (const [key, value] of Object.entries(changes)){
+      switch (key) {
+        case 'status':
+          description.push(`changes status from "${value.from}" to "${value.to}"`);
+          break;
+        case 'priority':
+          description.push(`changes priority from "${value.from}" to "${value.to}"`);
+          break;
+        case 'name':
+          description.push(`changes name from "${value.from}" to "${value.to}"`);
+          break;
+        case 'description':
+          description.push(`changes description from "${value.from}" to "${value.to}"`);
+          break;
+        case 'due_date':
+          description.push(`changes due_date from "${value.from}" to "${value.to}"`);
+          break;
+        case 'assigned_user':
+          description.push(`changes assigned_user from "${value.from}" to "${value.to}"`);
+          break;
+        default:
+          description.push(`updated ${key}`)
+      }
+    }
+    return description.join(', ')
   }
 
   @Cron('* * 1 * * *')

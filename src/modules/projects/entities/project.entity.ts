@@ -15,6 +15,9 @@ export class Projects extends Document {
     @Prop({ type: [MongooseSchema.Types.ObjectId], ref: 'ProjectMember', required: false })
     project_members: MongooseSchema.Types.ObjectId[];
 
+    @Prop({type: MongooseSchema.Types.ObjectId, ref: 'User', required: true})
+    owner: MongooseSchema.Types.ObjectId
+
     @Prop({required: false, default: false})
     is_deleted: boolean
 }

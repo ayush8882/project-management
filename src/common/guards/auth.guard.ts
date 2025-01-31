@@ -1,15 +1,25 @@
-import { CanActivate, ExecutionContext, UnauthorizedException } from "@nestjs/common";
-import { AuthService } from "src/modules/auth/auth.service";
+import { CanActivate, ExecutionContext, Injectable, UnauthorizedException } from "@nestjs/common";
+import { JwtService } from "@nestjs/jwt";
+import { UsersService } from "src/modules/users/users.service";
 
-export class JwtAuthGuard implements CanActivate {
-    constructor ( private readonly authService: AuthService ) {}
+@Injectable()
+export class AuthGuard implements CanActivate {
+    constructor ( 
+        private readonly jwtService: JwtService,
+        private readonly userService: UsersService
+    ) {}
     async canActivate(context: ExecutionContext):  Promise<boolean> {
         const request = context.switchToHttp().getRequest();
-        const header = request.headers.authorization ? request.headers.authorization.split(' ') : null;
-        if(!header) {
+        const token = request?.headers?.authorization ? request.headers.authorization : null; // won't be a bearer
+        if(!token) {
             throw new UnauthorizedException('Unauthorized Access!')
         }
         // validate the token from authService
-       return await this.authService.validateToken(header)
+        const payload = await this.jwtService.verifyAsync(token); // will have email and id
+        if(!payload) { throw new UnauthorizedException('JWT Verification failed!')}
+        const userDetails = await this.userService.findByEmail(payload?.email);
+        if(!userDetails) { throw new UnauthorizedException('User does not exists in system!')}
+        request.user = userDetails
+        return true;
     }
 }
