@@ -23,6 +23,9 @@ export class Tasks extends Document {
     @Prop({required: true, enum: TASK_STATUS, default: TASK_STATUS.OPEN})
     status: string
 
+    @Prop({type: Types.ObjectId, ref: 'User', required: true})
+    owner: Types.ObjectId
+
     @Prop({required: true, enum: TASK_PRIORITY, default: TASK_PRIORITY.MEDIUM})
     priority: string
 

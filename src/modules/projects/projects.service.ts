@@ -15,7 +15,6 @@ export class ProjectsService {
     @InjectModel(User.name) private readonly userModel: Model<UserDocument>,
   ) {}
   async create(createProjectDto: CreateProjectDto, user: any) {
-    console.log(user)
     const newProjectInstance = new this.projectModel({...createProjectDto, owner: user._id})
     return newProjectInstance.save();
   }

@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, Query, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Body, Patch, Param, Delete, Query, UseGuards, Request } from '@nestjs/common';
 import { TasksService } from './tasks.service';
 import { TaskQueryFilterDto } from './dto/get-task-by-filter.dto';
 import { UpdateTaskDto } from './dto/update-task.dto';
@@ -16,8 +16,13 @@ export class TasksController {
   @Post('project/:projectId')
   @UseGuards(AuthGuard, ProjectAccessGuard)
   @RequiredProjectRoles('ADMIN', 'OWNER', 'MEMBER')
-  async create(@Body() createTaskDto: CreateTaskDto, @Param('projectId') projectId: string) {
-    return await this.tasksService.create(projectId, createTaskDto);
+  async create(
+    @Body() createTaskDto: CreateTaskDto, 
+    @Param('projectId') projectId: string,
+    @Request() req: any
+  ) {
+    const user = req.user;
+    return await this.tasksService.create(projectId, createTaskDto, user);
   }
 
   @Get('project/:projectId')
@@ -36,9 +41,11 @@ export class TasksController {
   async update(
     @Param('taskId') taskId: string, 
     @Param('projectId') projectId: string, 
-    @Body() updateTaskDto: UpdateTaskDto
+    @Body() updateTaskDto: UpdateTaskDto,
+    @Request() req: any
   ) {
-    return await this.tasksService.updateProjectTask(taskId, projectId, updateTaskDto);
+    const user = req.user;
+    return await this.tasksService.updateProjectTask(taskId, projectId, updateTaskDto, user?._id?.toString());
   }
 
   @Delete(':taskId')
